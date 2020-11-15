@@ -1,0 +1,56 @@
+body {
+  background-color: #333;
+}
+h1 {
+  color: blue;
+}
+p {
+  color: red;
+}
+
+.seqContainer {
+  height: 80%;
+  width: 60%;
+  background: #ccc;
+}
+
+.seqContent {
+  height: 600px;
+  width: 100%;
+  position: relative;
+  overflow: scroll;
+  background: #111;
+}
+
+.seqContent::-webkit-scrollbar-thumb {
+  background-color: #442288;    /* color of the scroll thumb */
+  border-radius: 20px;       /* roundness of the scroll thumb */
+  border: 3px solid #222;  /* creates padding around scroll thumb */
+}
+
+.seqContent::-webkit-scrollbar {
+  width: 12px;               /* width of the entire scrollbar */
+}
+.seqContent::-webkit-scrollbar-track {
+  background: #222;        /* color of the tracking area */
+}
+
+.bar {
+  position: absolute;
+  outline: solid;
+  outline-color: rgba(0, 0, 0, 0.3);
+  outline-width: 1px;
+  pointer-events: none;
+}
+
+.note {
+  position: absolute;
+  z-index: 5;
+  background: #bb5;
+  border-radius: 5px;
+}
+
+.slot {
+  position: absolute;
+  height: 17px;
+}
