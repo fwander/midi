@@ -10,12 +10,12 @@ p {
 
 .seqContainer {
   height: 80%;
-  width: 60%;
+  width: 90%;
   background: #ccc;
 }
 
 .seqContent {
-  height: 600px;
+  height: 1000px;
   width: 100%;
   position: relative;
   overflow: scroll;
@@ -54,3 +54,11 @@ p {
   position: absolute;
   height: 17px;
 }
+.drag {
+  background: rgba(0,0,0,0);
+  z-index: 10;
+  height: 100%;
+  width: 5px;
+  float: right;
+}
+

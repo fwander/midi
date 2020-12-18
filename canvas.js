@@ -9,8 +9,8 @@ function Midi2Freq(M){
 	return 440 * Math.pow(2,(M-69)/12);
 }
 
-var bpm = 200;
-var width = 5000;
+var bpm = 500;
+var width = 3000;
 var slotWidth = (width / (8 * 4 * 4));
 var numNotes = 100;
 var noteHeight = 21;
@@ -18,6 +18,8 @@ var leftOffset = 50;
 var topOffset = 20;
 var slots = document.getElementById('slots');
 var playing = false;
+var beats = 1;
+var synth;
 class Note{
 	constructor(note,beats,vel,offset,arr){
 		this.note = note;
@@ -32,9 +34,37 @@ class Note{
 		}
 	}
 	copy(){
-		return new Note(this.note, this.beats, this.vel, this.offset, this.arr);
+		return new Note(this.note, this.beats, this.vel, this.offset);
+	}
+	shortCopy(){
+		return new Note(this.note, 1, this.vel, this.offset);
 	}
 }; 
+
+class Synth{
+    constructor(){
+        this.a = .009;
+        this.d = .3;
+        this.s = 1;
+        this.r = .1;
+    }
+}
+class Osc{
+    constructor(){
+    this.type = 2;
+    this.freqOffset = 0;
+    }
+    osc(number, freq){
+        freq = freq += this.freqOffset;
+        switch(this.type){
+            case 1:
+                return (number % freq) / freq;
+                break;
+            case 2:
+                return Math.sin(number / (freq / (Math.PI * 2)));
+        }
+    }
+}
 
 function arrMaker(note, F){
 	var arr = [];
@@ -45,15 +75,14 @@ function arrMaker(note, F){
 	for (var i = 0; i < len + .5 * context.sampleRate; i++) {
 		arr[i] = F(i, tone, vel, i/context.sampleRate, seconds);
 	}
-
-	return arr;
-
-}
-function playSound(arr) {
 	var buf = new Float32Array(arr.length)
 	for (var i = 0; i < arr.length; i++) buf[i] = arr[i]
-	var buffer = context.createBuffer(1, buf.length, context.sampleRate)
-	buffer.copyToChannel(buf, 0)
+	return buf;
+}
+
+function playSound(arr) {
+	var buffer = context.createBuffer(1, arr.length, context.sampleRate)
+	buffer.copyToChannel(arr, 0)
 	var source = context.createBufferSource();
 	source.buffer = buffer;
 	source.connect(context.destination);
@@ -69,12 +98,8 @@ function copyNotes(lon){
 }
 
 function sineWaveAt(sampleNumber, tone, vel, time, len) {
-	var a = .06;
-	var d = .1;
-	var s = 1;
-	var r = .1;
 	var sampleFreq = context.sampleRate / tone;
-	return env(a,d,s,r,time,len,true) * vel * Math.sin(sampleNumber / (sampleFreq / (Math.PI * 2)));
+	return env(synth.a,synth.d,synth.s,synth.r,time,len,true) * (vel/sampleFreq) * (sampleNumber % (sampleFreq));   //Math.sin(sampleNumber / (sampleFreq / (Math.PI * 2)));
 }
 
 function env(a, d, s, r, t, len, rec){
@@ -98,15 +123,17 @@ function createNote(x, y, note, beats, vel){
 	var offset = Math.floor(x/slotWidth);
 	n = new Note(note, beats, vel, offset);
 	if (!playing){
-		playSound(n.arr);
+		playSound(n.shortCopy().arr);
 	}
 	addNote(n, notes);
-	for (var i = 0 ; i < notes.length; i++){
-		console.log(notes[i].offset);
-	}
 	var div = createDiv('note', "o" + offset + "n" + note, x, y, beats * slotWidth, 16);
 	slots.appendChild(div);
-	
+    var subdiv = createDiv('drag', "d", x+3,y,6,17);
+    div.appendChild(subdiv);
+    subdiv.addEventListener("mousedown", resize);	
+    subdiv.ondragstart = function () {
+          return false;
+    };
 	function addNote(n, lon){
 		for (var i = 0; i < lon.length - 1; i++){
 			if (n.offset >= lon[i].offset && n.offset <= lon[i+1].offset){
@@ -118,13 +145,19 @@ function createNote(x, y, note, beats, vel){
 	}
 }
 
-function removeNote(offset, note){
+function findNote(offset, note){
 	for (var i = 0; i < notes.length; i++){
 		if (notes[i].offset == offset && notes[i].note == note){
-			notes.splice(i, 1);
+            return i;
 		}
 	}
+    return -1;
 }
+
+function removeNote(offset, note){
+    notes.splice(findNote(offset, note), 1);
+}
+
 
 function createDiv(Dclass, id, x, y, width, height){
 	var div = document.createElement('div');
@@ -136,11 +169,10 @@ function createDiv(Dclass, id, x, y, width, height){
 	div.style.height = height + "px";
 	return div;
 }
+
 function setUp(){
-	
 	addSlots();
 	addBars(8, slots, 3, width, true);
-
 	function addSlots(){
 		var cs = ["#222", "#555"];
 		var slots = document.getElementById('slots');
@@ -152,7 +184,6 @@ function setUp(){
 			}
 		}
 	}
-
 	function addBars(num, elem, rec, w, offset){
 		if(rec < 1){
 			return;
@@ -178,13 +209,36 @@ function playNotes(lon , i){
 		return
 	}
 	n = lon[i];
+    console.log(n.arr.length);
 	diff = lon[i+1].offset;
 	diff -= n.offset;
-	timeDiff = diff / (bpm/60)
+	timeDiff = diff / (bpm/60);
 	playSound(n.arr);
 	setTimeout(() => { playNotes(lon, i + 1); }, timeDiff * 1000);
 }
 //init data
+var synth = new Synth();
+var attack = document.getElementById("attack");
+
+attack.oninput = function() {
+      synth.a = (Math.pow(this.value, 2))/10000;
+}
+
+var decay = document.getElementById("decay");
+decay.oninput = function() {
+      synth.d = (Math.pow(this.value, 2))/1000;
+}
+
+var sustain = document.getElementById("sustain");
+sustain.oninput = function() {
+      synth.s = (this.value)/100;
+}
+
+var release = document.getElementById("release");
+release.oninput = function() {
+      synth.r = (this.value)/100;
+}
+
 var notes = [new Note(0,1,0,0)];
 setUp();
 
@@ -193,27 +247,68 @@ setUp();
 function onPlay() {
 	if (!playing){
 		playing = true;
-		playNotes(copyNotes(notes),0);
+        function start(){
+            playNotes(copyNotes(notes),0);
+        }
+		setTimeout(start, 0);
 	}
+    else {
+        playing = false;
+    }
+}
+
+function targetToNote(e){
+    offset = parseInt(e.id.substring(1));
+    note = parseInt(e.id.substring(e.id.indexOf("n")+1));
+    return findNote(offset, note);
 }
 
 document.getElementById('container').onclick = function clickEvent(e) {
-      // e = Mouse click event.
-	console.log(e.target.id);
-	if (e.target.id[0] != "n"){
-	return;
-	}
-	var rect = e.target;
-	createNote(rect.offsetLeft, rect.offsetTop, parseInt(e.target.id.substring(1)), 2, .2);
+    // e = Mouse click event.
+    switch(e.target.id[0]) {
+    case "n":
+        var rect = e.target;
+        createNote(rect.offsetLeft, rect.offsetTop, parseInt(e.target.id.substring(1)), beats, .1);
+        break;
+    case "o":
+        note = notes[targetToNote(e.target)];
+        beats = note.beats;
+        playSound(note.shortCopy().arr)
+        break;
+    }            
 }
+
+function resize(e){
+    var target;
+    var tnote;
+    
+    target = e.target.parentNode;
+    var startWidth = parseFloat(target.style.width);
+    var initX = e.clientX;
+    tnote = notes[targetToNote(target)];
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    function onMouseMove(e){
+        var newWidth = (startWidth + e.clientX - initX);
+        newWidth = Math.floor((newWidth/slotWidth)+.5);
+        tnote.beats = newWidth;
+        beats = newWidth;
+        newWidth = newWidth*slotWidth; 
+        target.style.width = newWidth + "px";
+    }
+    function onMouseUp(e){
+        document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('mousemove', onMouseMove);
+    }
+}
+
 document.getElementById('container').addEventListener('contextmenu', e => {
 	if (e.target.id[0] != "o"){
 		e.preventDefault();
 		return;
 	}
 	e.target.remove();
-	offset = parseInt(e.target.id.substring(1));
-	note = parseInt(e.target.id.substring(e.target.id.indexOf("n")+1));
-	removeNote(offset,note);
-  e.preventDefault();
+    notes.splice(targetToNote(e.target), 1);
+    e.preventDefault();
 });
+////////////////////

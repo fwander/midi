@@ -10,10 +10,18 @@
 	<p id="demo"></p>
  </head>
  <body>
+     <div style = "display: flex">
    <div id = "container" class = "seqContainer">
 	   <div id =  "slots" class = "seqContent">
 	   </div>
    </div>
+   <div class="slidecontainer">
+       <p style="color: #FFF">a</p><input  type="range" min="0" max="100" value=".005" class="slider" id="attack">
+       <p style="color: #FFF">d</p><input  type="range" min="0" max="100" value=".005" class="slider" id="decay">
+       <p style="color: #FFF">s</p><input  type="range" min="0" max="100" value=".005" class="slider" id="sustain">
+       <p style="color: #FFF">r</p><input  type="range" min="0" max="100" value=".005" class="slider" id="release">
+   </div>
+     </div>
    <script src="canvas.js"></script>
  </body>
 </html>
