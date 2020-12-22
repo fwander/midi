@@ -197,7 +197,9 @@ function setUp(){ // creates all of the divs needed for workspace
 		}
 	}
 }
-var totalLag = 0;
+var first = true;
+var t0;
+var t1;
 function playNotes(lon , i){ //lon is a list of notes and i is the note index to start on
 	if (playing == false){
 		return;
@@ -211,15 +213,22 @@ function playNotes(lon , i){ //lon is a list of notes and i is the note index to
 	diff = lon[i+1].offset;
 	diff -= n.offset;
 	timeDiff = diff / (bpm/60);
-    var t0 = performance.now();
+    var t2 = performance.now();
 	playSound(n.arr); // send the note samples to the buffer
-    var t1 = performance.now();
-    totalLag += t1-t0;
     var timeMakeUp = 0;
     if (timeDiff != 0){
-        timeMakeUp = totalLag;
-        totalLag = 0;
+        t1 = performance.now();
+        timeMakeUp = t1 - t0;
+        if (first){
+            timeMakeUp = t1 - t2;
+        }
+        first = true;
     }
+    else if(first == true){
+        first = false;
+        t0 = performance.now();
+    }
+    console.log(timeMakeUp);
 	setTimeout(() => { playNotes(lon, i + 1); }, timeDiff * 1000 - timeMakeUp); // walk through the rest of the list of notes
 }
 //init data
