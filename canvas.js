@@ -400,10 +400,11 @@ function drag(e){
         for (var i = 0; i < sel.length; i++){
             var newX = (startX[i] + Math.floor((e.clientX - initX)/slotWidth)*slotWidth);
             var newY = (startY[i] + Math.floor((e.clientY - initY)/noteHeight)*noteHeight);
+            console.log(Math.floor((e.clientX - initX)/slotWidth)*slotWidth);
             var offdiff = Math.floor((e.clientX - initX)/slotWidth);
             var notediff = Math.floor((e.clientY - initY)/noteHeight);
             sel[i].offset = startOff[i] + offdiff;
-            sel[i].note = startNote[i] + notediff;
+            sel[i].note = startNote[i] - notediff;
             sel[i].div.id = "o" + sel[i].offset + "n" + sel[i].note;
             //sel[i].beats = newWidth;
             sel[i].div.style.left = newX + "px";
