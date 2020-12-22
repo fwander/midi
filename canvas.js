@@ -357,6 +357,15 @@ window.onkeydown= function(gfg){
     if(gfg.code == "ShiftLeft"){
         shift = true;
     }
+    console.log(gfg.code);
+    if(gfg.code == "Delete"){
+        for(var i = 0; i < selected.length; i++){
+            selected[i].div.remove();
+            var index = findNote(selected[i].offset, selected[i].note);
+            notes.splice(index, 1);
+        }
+        selected = [];
+    }
 };
 
 window.onkeyup= function(gfg){ 
