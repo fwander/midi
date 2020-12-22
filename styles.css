@@ -38,7 +38,7 @@ p {
 .bar {
   position: absolute;
   outline: solid;
-  outline-color: rgba(0, 0, 0, 0.3);
+  outline-color: rgba(0, 0, 0, 0.2);
   outline-width: 1px;
   pointer-events: none;
 }
@@ -54,11 +54,17 @@ p {
   position: absolute;
   height: 17px;
 }
+.select {
+  background: rgba(0,100,0,.5);
+  position: absolute;
+  z-index: 15;
+}
 .drag {
-  background: rgba(0,0,0,0);
+  background: rgba(0,0,0,.5);
   z-index: 10;
   height: 100%;
   width: 5px;
+  cursor: w-resize;
   float: right;
 }
 

@@ -2,24 +2,26 @@ window.AudioContext = window.AudioContext || window.webkitAudioContext;
 
 
 
-var context = new AudioContext();
+const context = new AudioContext();
 
 
 function Midi2Freq(M){
 	return 440 * Math.pow(2,(M-69)/12);
 }
 
-var bpm = 500;
-var width = 3000;
-var slotWidth = (width / (8 * 4 * 4));
-var numNotes = 100;
-var noteHeight = 21;
-var leftOffset = 50;
-var topOffset = 20;
-var slots = document.getElementById('slots');
+const bpm = 500;
+const width = 3000;
+const slotWidth = (width / (8 * 4 * 4));
+const numNotes = 100;
+const noteHeight = 21;
+const leftOffset = 50;
+const topOffset = 20;
+const slots = document.getElementById('slots');
 var playing = false;
 var beats = 1;
+var control = false;
 var synth;
+
 class Note{
 	constructor(note,beats,vel,offset,arr){
 		this.note = note;
@@ -119,7 +121,7 @@ function env(a, d, s, r, t, len, rec){
 	return s;
 }
 
-function createNote(x, y, note, beats, vel){
+function createNote(x, y, note, beats, vel){ //
 	var offset = Math.floor(x/slotWidth);
 	n = new Note(note, beats, vel, offset);
 	if (!playing){
@@ -128,12 +130,13 @@ function createNote(x, y, note, beats, vel){
 	addNote(n, notes);
 	var div = createDiv('note', "o" + offset + "n" + note, x, y, beats * slotWidth, 16);
 	slots.appendChild(div);
-    var subdiv = createDiv('drag', "d", x+3,y,6,17);
+    var subdiv = createDiv('drag', "d", 0,0,6,17);
     div.appendChild(subdiv);
     subdiv.addEventListener("mousedown", resize);	
     subdiv.ondragstart = function () {
           return false;
     };
+    
 	function addNote(n, lon){
 		for (var i = 0; i < lon.length - 1; i++){
 			if (n.offset >= lon[i].offset && n.offset <= lon[i+1].offset){
@@ -145,7 +148,7 @@ function createNote(x, y, note, beats, vel){
 	}
 }
 
-function findNote(offset, note){
+function findNote(offset, note){ // returns the index of the first note that maches the given offset and frequency
 	for (var i = 0; i < notes.length; i++){
 		if (notes[i].offset == offset && notes[i].note == note){
             return i;
@@ -157,9 +160,8 @@ function findNote(offset, note){
 function removeNote(offset, note){
     notes.splice(findNote(offset, note), 1);
 }
-
-
-function createDiv(Dclass, id, x, y, width, height){
+// Dclass is the div class, id is the div to be id
+function createDiv(Dclass, id, x, y, width, height){ 
 	var div = document.createElement('div');
 	div.setAttribute('class', Dclass);
 	div.style.top = y + "px";
@@ -170,21 +172,21 @@ function createDiv(Dclass, id, x, y, width, height){
 	return div;
 }
 
-function setUp(){
+function setUp(){ // creates all of the divs needed for workspace
 	addSlots();
 	addBars(8, slots, 3, width, true);
-	function addSlots(){
+	function addSlots(){ // add the places for notes to go "slots"
 		var cs = ["#222", "#555"];
 		var slots = document.getElementById('slots');
 		for (var i = 0 ; i < 100; i++){
-			for (var x = 0; x < width/slotWidth; x++){
-				var div = createDiv('slot', "n" + (numNotes - i), leftOffset + x * slotWidth, i * noteHeight + topOffset, slotWidth, 17); 
+			//for (var x = 0; x < width/slotWidth; x++){
+				var div = createDiv('slot', "n" + (numNotes - i), leftOffset + 0 *slotWidth, i * noteHeight + topOffset, width, 17); 
 				div.style.background = cs[i%2];
 				slots.appendChild(div);
-			}
+			//}
 		}
 	}
-	function addBars(num, elem, rec, w, offset){
+	function addBars(num, elem, rec, w, offset){ // create visual seperation of mesures
 		if(rec < 1){
 			return;
 		}
@@ -199,7 +201,7 @@ function setUp(){
 	}
 }
 
-function playNotes(lon , i){
+function playNotes(lon , i){ //lon is a list of notes and i is the note index to start on
 	if (playing == false){
 		return;
 	}
@@ -209,17 +211,16 @@ function playNotes(lon , i){
 		return
 	}
 	n = lon[i];
-    console.log(n.arr.length);
 	diff = lon[i+1].offset;
 	diff -= n.offset;
 	timeDiff = diff / (bpm/60);
-	playSound(n.arr);
-	setTimeout(() => { playNotes(lon, i + 1); }, timeDiff * 1000);
+	playSound(n.arr); // send the note samples to the buffer
+	setTimeout(() => { playNotes(lon, i + 1); }, timeDiff * 1000); // walk through the rest of the list of notes
 }
 //init data
 var synth = new Synth();
 var attack = document.getElementById("attack");
-
+// sliders
 attack.oninput = function() {
       synth.a = (Math.pow(this.value, 2))/10000;
 }
@@ -263,25 +264,55 @@ function targetToNote(e){
     return findNote(offset, note);
 }
 
+document.getElementById('container').onmousedown = function clickEvent(e) {
+    if (control){
+        div = createDiv("select", "temp", e.target.offsetLeft, e.target.offsetTop, 10, 10);
+        slots.appendChild(div);
+        startX = e.screenX;
+        startY = e.screenY;
+        document.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('mouseup', onMouseUp, false);
+        function onMouseMove(e){
+            div.style.width = e.screenX - startX + "px";
+            div.style.height = e.screenY - startY + "px";
+        }
+        function onMouseUp(e){
+            document.removeEventListener('mouseup', onMouseUp);
+            document.removeEventListener('mousemove', onMouseMove);
+        }
+    }
+}
 document.getElementById('container').onclick = function clickEvent(e) {
     // e = Mouse click event.
+    console.log(slots.scrollLeft);
     switch(e.target.id[0]) {
-    case "n":
-        var rect = e.target;
-        createNote(rect.offsetLeft, rect.offsetTop, parseInt(e.target.id.substring(1)), beats, .1);
+    case "n": // div id starts with n, indecating a slot
+        var rect = e.target; 
+        createNote(Math.floor((e.pageX + slots.scrollLeft - 7)/slotWidth)*slotWidth+3, rect.offsetTop, parseInt(e.target.id.substring(1)), beats, .1);
         break;
-    case "o":
-        note = notes[targetToNote(e.target)];
-        beats = note.beats;
-        playSound(note.shortCopy().arr)
+    case "o": // div id starts with a o, indecating a note 
+        note = notes[targetToNote(e.target)]; // get note from list of notes
+        beats = note.beats; //change the active note length to the selected note
+        playSound(note.shortCopy().arr) // play a copy of the note that is shortened
         break;
     }            
 }
 
+window.onkeydown= function(gfg){ 
+    if(gfg.code == "ControlLeft"){
+        control = true;
+    }
+};
+
+window.onkeyup= function(gfg){ 
+    if(gfg.code == "ControlLeft"){
+       control = false; 
+    }
+};
+
 function resize(e){
     var target;
     var tnote;
-    
     target = e.target.parentNode;
     var startWidth = parseFloat(target.style.width);
     var initX = e.clientX;
