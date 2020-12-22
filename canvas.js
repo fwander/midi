@@ -10,18 +10,19 @@ function Midi2Freq(M){
 }
 
 const bpm = 500;
-const width = 3000;
+const width = 3072;
 const slotWidth = (width / (8 * 4 * 4));
 const noteHeight = 21;
 const leftOffset = 50;
 const topOffset = 20;
 const slots = document.getElementById('slots');
 const lowestNote = 36;
-const highestNote = 73;
+const highestNote = 85;
 var numNotes = highestNote - lowestNote;
 var playing = false;
 var beats = 1;
 var control = false;
+var shift = false;
 var synth;
 var selected = [];
 
@@ -124,9 +125,6 @@ function createNote(x, y, note, beats, vel){ //
 	var offset = Math.floor(x/slotWidth);
 	var div = createDiv('note', "o" + offset + "n" + note, x, y, beats * slotWidth, 16);
 	n = new Note(note, beats, vel, offset, div);
-	if (!playing){
-		playSound(n.shortCopy().arr);
-	}
 	addNote(n, notes);
 	slots.appendChild(div);
     var subdiv = createDiv('drag', "d", 0,0,6,17);
@@ -136,16 +134,17 @@ function createNote(x, y, note, beats, vel){ //
     subdiv.ondragstart = function () {
           return false;
     };
-    
-	function addNote(n, lon){
-		for (var i = 0; i < lon.length - 1; i++){
-			if (n.offset >= lon[i].offset && n.offset <= lon[i+1].offset){
-				lon.splice(i+1, 0, n);
-				return;
-			}
-		}
-		lon.push(n);
-	}
+    return n;
+}
+
+function addNote(n, lon){
+    for (var i = 0; i < lon.length - 1; i++){
+        if (n.offset >= lon[i].offset && n.offset <= lon[i+1].offset){
+            lon.splice(i+1, 0, n);
+            return;
+        }
+    }
+    lon.push(n);
 }
 
 function findNote(offset, note){ // returns the index of the first note that maches the given offset and frequency
@@ -198,7 +197,7 @@ function setUp(){ // creates all of the divs needed for workspace
 		}
 	}
 }
-
+var totalLag = 0;
 function playNotes(lon , i){ //lon is a list of notes and i is the note index to start on
 	if (playing == false){
 		return;
@@ -212,8 +211,16 @@ function playNotes(lon , i){ //lon is a list of notes and i is the note index to
 	diff = lon[i+1].offset;
 	diff -= n.offset;
 	timeDiff = diff / (bpm/60);
+    var t0 = performance.now();
 	playSound(n.arr); // send the note samples to the buffer
-	setTimeout(() => { playNotes(lon, i + 1); }, timeDiff * 1000); // walk through the rest of the list of notes
+    var t1 = performance.now();
+    totalLag += t1-t0;
+    var timeMakeUp = 0;
+    if (timeDiff != 0){
+        timeMakeUp = totalLag;
+        totalLag = 0;
+    }
+	setTimeout(() => { playNotes(lon, i + 1); }, timeDiff * 1000 - timeMakeUp); // walk through the rest of the list of notes
 }
 //init data
 var synth = new Synth();
@@ -257,11 +264,18 @@ function onPlay() {
 }
 
 function deselect(){
-    console.log(selected);
     for(var i = 0; i < selected.length; i++){
         selected[i].div.style.background = "#bb5";
     }
     selected = [];
+}
+
+function copySelected(){
+    for(var i = 0; i < selected.length; i++){
+        selected[i].div.style.background = "#bb5";
+        selected[i] = createNote(parseInt(selected[i].div.style.left), parseInt(selected[i].div.style.top), selected[i].note, selected[i].beats, selected[i].vel);
+        selected[i].div.style.background = "#000";
+    }
 }
 
 function targetToNote(e){
@@ -316,7 +330,8 @@ document.getElementById('container').onclick = function clickEvent(e) {
     case "n": // div id starts with n, indecating a slot
         deselect();
         var rect = e.target; 
-        createNote(Math.floor((e.pageX + slots.scrollLeft - 7)/slotWidth)*slotWidth+3, rect.offsetTop, parseInt(e.target.id.substring(1)), beats, .1);
+        createNote(Math.floor((e.pageX + slots.scrollLeft - 7)/slotWidth)*slotWidth+2, rect.offsetTop, parseInt(e.target.id.substring(1)), beats, .1);
+        console.log(notes);
         break;
     case "o": // div id starts with a o, indecating a note 
         note = notes[targetToNote(e.target)]; // get note from list of notes
@@ -330,11 +345,17 @@ window.onkeydown= function(gfg){
     if(gfg.code == "ControlLeft"){
         control = true;
     }
+    if(gfg.code == "ShiftLeft"){
+        shift = true;
+    }
 };
 
 window.onkeyup= function(gfg){ 
     if(gfg.code == "ControlLeft"){
        control = false; 
+    }
+    if(gfg.code == "ShiftLeft"){
+        shift = false;
     }
 };
 
@@ -371,7 +392,8 @@ function resize(e){
 }
 
 function drag(e){
-    if (e.target.id[0] != "o"){
+    console.log(e);
+    if (e.target.id[0] != "o" || control || e.button != 0){
         return;
     }
     var target;
@@ -383,6 +405,10 @@ function drag(e){
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
     var sel = [tnote];
+    if(shift){
+        copySelected();
+        console.log(selected[0]);
+    }
     if (selected.length != 0){
        sel = selected; 
     }
@@ -400,31 +426,50 @@ function drag(e){
         for (var i = 0; i < sel.length; i++){
             var newX = (startX[i] + Math.floor((e.clientX - initX)/slotWidth)*slotWidth);
             var newY = (startY[i] + Math.floor((e.clientY - initY)/noteHeight)*noteHeight);
-            console.log(Math.floor((e.clientX - initX)/slotWidth)*slotWidth);
             var offdiff = Math.floor((e.clientX - initX)/slotWidth);
             var notediff = Math.floor((e.clientY - initY)/noteHeight);
             sel[i].offset = startOff[i] + offdiff;
             sel[i].note = startNote[i] - notediff;
             sel[i].div.id = "o" + sel[i].offset + "n" + sel[i].note;
-            //sel[i].beats = newWidth;
             sel[i].div.style.left = newX + "px";
             sel[i].div.style.top = newY + "px";
         }
     }
     function onMouseUp(e){
+        for(var i = 0; i < sel.length; i++){
+            removeNote(sel[i].offset, sel[i].note);
+        }
+        for(var i = 0; i < sel.length; i++){
+            addNote(sel[i],notes);
+        }
         document.removeEventListener('mouseup', onMouseUp);
         document.removeEventListener('mousemove', onMouseMove);
     }
 }
 
 document.getElementById('container').addEventListener('contextmenu', e => {
-    deselect();
+    var inSelected = false;
 	if (e.target.id[0] != "o"){
+        deselect();
 		e.preventDefault();
 		return;
 	}
+    var index = targetToNote(e.target)
+    console.log(notes[index]);
 	e.target.remove();
-    notes.splice(targetToNote(e.target), 1);
+    //for(var i = 0; i < selected.length; i++){
+        //if (selected[i].note == notes[index].note && selected[i].offset == notes[index].offset){
+            //selected.splice(i,1);
+            //inSelected = true;
+        //}
+    //}
+
+    notes.splice(index, 1);
+    
+    if (!inSelected){
+        deselect();
+    }
+    console.log(notes);
     e.preventDefault();
 });
 ////////////////////
