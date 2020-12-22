@@ -266,7 +266,8 @@ function targetToNote(e){
 
 document.getElementById('container').onmousedown = function clickEvent(e) {
     if (control){
-        div = createDiv("select", "temp", e.target.offsetLeft, e.target.offsetTop, 10, 10);
+        offsetX = e.pageX + slots.scrollLeft - 7;
+        div = createDiv("select", "temp", offsetX, e.target.offsetTop, 10, 10);
         slots.appendChild(div);
         startX = e.screenX;
         startY = e.screenY;
