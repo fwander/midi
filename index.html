@@ -4,12 +4,18 @@
    <meta charset="UTF-8">
    <title>abacaba synth</title>
    
-   <input type="text" id="input" value="Some text...">
-   <link rel="stylesheet" href="styles.css">	
-   <button onclick="onPlay()">Play</button>
-	<p id="demo"></p>
  </head>
  <body>
+     <p style="color: #FFF">
+     click slot to add note&emsp;
+     drag end of note to resize&emsp;
+     drag note to move&emsp;
+     left ctrl+leftClick: select notes&emsp;
+     left shift+leftClick+drag: copy and paste selected notes&emsp;
+     selected notes can be resized and moved at the same time&emsp;
+     </p>
+   <link rel="stylesheet" href="styles.css">	
+   <button onclick="onPlay()">Play</button>
      <div style = "display: flex">
    <div id = "container" class = "seqContainer">
 	   <div id =  "slots" class = "seqContent">

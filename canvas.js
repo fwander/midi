@@ -9,7 +9,7 @@ function Midi2Freq(M){
 	return 440 * Math.pow(2,(M-69)/12);
 }
 
-const bpm = 500;
+const bpm = 600;
 const width = 3072;
 const slotWidth = (width / (8 * 4 * 4));
 const noteHeight = 21;
@@ -339,8 +339,8 @@ document.getElementById('container').onclick = function clickEvent(e) {
     case "n": // div id starts with n, indecating a slot
         deselect();
         var rect = e.target; 
-        createNote(Math.floor((e.pageX + slots.scrollLeft - 7)/slotWidth)*slotWidth+2, rect.offsetTop, parseInt(e.target.id.substring(1)), beats, .1);
-        console.log(notes);
+        var note = createNote(Math.floor((e.pageX + slots.scrollLeft - 7)/slotWidth)*slotWidth+2, rect.offsetTop, parseInt(e.target.id.substring(1)), beats, .1);
+        playSound(note.shortCopy().arr) // play a copy of the note that is shortened
         break;
     case "o": // div id starts with a o, indecating a note 
         note = notes[targetToNote(e.target)]; // get note from list of notes
