@@ -234,7 +234,7 @@ function setUp(){ // creates all of the divs needed for workspace
 }
 
 
-function playBBB(){ //play buffer by buffer
+async function playBBB(lon){ //play buffer by buffer
     var i = 0;
     var sec = 0;
     var sample = 0;
@@ -248,10 +248,11 @@ function playBBB(){ //play buffer by buffer
     while(playing){
         
         var beats = fromTime(sec);
-        if (i >= notes.length && notesOn.length == 0){
+        if (i >= lon.length && notesOn.length == 0){
+            playing = false;
             break;
         }
-        while(i < notes.length && beatsToSeconds(notes[i].offset) <= sec + .1){
+        while(i < lon.length && beatsToSeconds(lon[i].offset) <= sec + .1){
             console.log(sec);
             notesOn.push(i++);
         }
@@ -260,7 +261,7 @@ function playBBB(){ //play buffer by buffer
             buf[s] = 0;
         }
         for(var n = 0; n < notesOn.length; n++){
-            var note = notes[notesOn[n]];
+            var note = lon[notesOn[n]];
             var startSample = beatsToSamples(note.offset);
             var arr = note.render(sample - startSample); 
             for(var s = 0; s < sampleBufferSize; s++){
@@ -283,9 +284,11 @@ function playBBB(){ //play buffer by buffer
         sec += timeStep;
         sample += sampleBufferSize;
          
+        await sleep(10); //make sure the page doesn't freeze up
         var currentTime = context.currentTime - startTime;
         lastTime = context.currentTime;
 
+        
         source.start(sec + startTime);
         sources.push(source);
     }
@@ -334,7 +337,12 @@ function onPlay() {
 	if (!playing){
 		playing = true;
         function start(){
-            playBBB();
+            var input = Array(notes.length); 
+            for(var i = 0; i < notes.length; i++){
+                input[i] = notes[i].copy();
+            }
+
+            playBBB(input);
         }
 		setTimeout(start, 0);
 	}
