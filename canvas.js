@@ -253,7 +253,6 @@ async function playBBB(lon){ //play buffer by buffer
             break;
         }
         while(i < lon.length && beatsToSeconds(lon[i].offset) <= sec + .1){
-            console.log(sec);
             notesOn.push(i++);
         }
         var notesOff = [];
@@ -267,12 +266,16 @@ async function playBBB(lon){ //play buffer by buffer
             for(var s = 0; s < sampleBufferSize; s++){
                 buf[s] += arr[s];
             }
+            
             if(beats > note.offset + note.beats + 8){
                 notesOff.push(n);
             }
         }
+        notesOff.sort();
+        notesOff.reverse();
         for(var n = 0; n < notesOff.length; n++){
             notesOn.splice(notesOff[n],1);
+            console.log(beats, notesOn, lon[n]);
         }
 
         var buffer = context.createBuffer(1, buf.length, context.sampleRate)
