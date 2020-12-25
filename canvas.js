@@ -22,7 +22,7 @@ const topOffset = 20;
 const slots = document.getElementById('slots');
 const lowestNote = 36;
 const highestNote = 85;
-var sampleBufferSize = Math.floor(context.sampleRate / 10);
+var sampleBufferSize = Math.floor(context.sampleRate / 5);
 var numNotes = highestNote - lowestNote;
 var playing = false;
 var beats = 1;
@@ -123,7 +123,7 @@ function copyNotes(lon){
 function genSaw(t, f){
     var result = 0;
     var it = 1;
-    for(var i = 1; i < 30; i++){
+    for(var i = 1; i < 2; i++){
         result += Math.sin(t/((f/i)/(Math.PI * 2)))/i * it; 
         it *= -1;
         
@@ -287,7 +287,7 @@ async function playBBB(lon){ //play buffer by buffer
         sec += timeStep;
         sample += sampleBufferSize;
          
-        await sleep(10); //make sure the page doesn't freeze up
+        //await sleep(10); //make sure the page doesn't freeze up
         var currentTime = context.currentTime - startTime;
         lastTime = context.currentTime;
 
