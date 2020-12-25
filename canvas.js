@@ -9,7 +9,11 @@ function Midi2Freq(M){
 	return 440 * Math.pow(2,(M-69)/12);
 }
 
-const bpm = 500;
+function sleep(ms) {
+          return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+const bpm = 400;
 const width = 3072;
 const slotWidth = (width / (8 * 4 * 4));
 const noteHeight = 21;
@@ -19,6 +23,7 @@ const slots = document.getElementById('slots');
 const noteList = document.getElementById('note-names');
 const lowestNote = 36;
 const highestNote = 85;
+var sampleBufferSize = Math.floor(context.sampleRate / 10);
 var numNotes = highestNote - lowestNote;
 var playing = false;
 var beats = 1;
@@ -26,6 +31,7 @@ var control = false;
 var shift = false;
 var synth;
 var selected = [];
+var sources = [];
 
 class Note{
 	constructor(note,beats,vel,offset,div){
@@ -34,8 +40,23 @@ class Note{
 		this.vel = vel;
 		this.offset = offset;
         this.div = div;
-        this.arr = arrMaker(this, sineWaveAt);
 	}
+    render(startSample){
+        var arr = new Float32Array(sampleBufferSize); 
+        var tone = Midi2Freq(this.note);
+        var seconds = (this.beats) / (bpm/60);
+        var index = 0;
+        for(var i = startSample; i < startSample + sampleBufferSize; i++){
+            if (i >= 0){
+                arr[index] = sineWaveAt(i, tone, this.vel, i/context.sampleRate, seconds);
+            }
+            else{
+                arr[index] = 0;
+            }
+            index++;
+        } 
+        return arr;
+    }
 	copy(){
 		return new Note(this.note, this.beats, this.vel, this.offset, this.div);
 	}
@@ -72,7 +93,7 @@ class Osc{
 function arrMaker(note, F){
 	var arr = [];
 	var tone = Midi2Freq(note.note);
-	var seconds = note.beats / (bpm/60);
+	var seconds = (note.beats) / (bpm/60);
 	var vel = note.vel;
 	var len = context.sampleRate * seconds;
 	for (var i = 0; i < len + .5 * context.sampleRate; i++) {
@@ -100,9 +121,23 @@ function copyNotes(lon){
 	return ret;
 }
 
+function genSaw(t, f){
+    var result = 0;
+    var it = 1;
+    for(var i = 1; i < 30; i++){
+        result += Math.sin(t/((f/i)/(Math.PI * 2)))/i * it; 
+        it *= -1;
+        
+    }
+    return result;
+}
+
 function sineWaveAt(sampleNumber, tone, vel, time, len) {
 	var sampleFreq = context.sampleRate / tone;
-	return env(synth.a,synth.d,synth.s,synth.r,time,len,true) * (vel/sampleFreq) * (sampleNumber % (sampleFreq));   //Math.sin(sampleNumber / (sampleFreq / (Math.PI * 2)));
+    //((sampleNumber % (sampleFreq))/sampleFreq);
+    //
+	return env(synth.a,synth.d,synth.s,synth.r,time,len,true) * (vel) * genSaw(sampleNumber,sampleFreq);
+	//return env(synth.a,synth.d,synth.s,synth.r,time,len,true) * (vel) * Math.sin(sampleNumber / (sampleFreq / (Math.PI * 2)));
 }
 
 function env(a, d, s, r, t, len, rec){
@@ -203,40 +238,82 @@ function setUp(){ // creates all of the divs needed for workspace
 		}
 	}
 }
-var first = true;
-var t0;
-var t1;
-function playNotes(lon , i){ //lon is a list of notes and i is the note index to start on
-	if (playing == false){
-		return;
-	}
-	if (lon.length-1 == i){
-		playSound(arrMaker(lon[i],sineWaveAt));
-		playing = false;
-		return
-	}
-	n = lon[i];
-	diff = lon[i+1].offset;
-	diff -= n.offset;
-	timeDiff = diff / (bpm/60);
-    var t2 = performance.now();
-	playSound(n.arr); // send the note samples to the buffer
-    var timeMakeUp = 0;
-    if (timeDiff != 0){
-        t1 = performance.now();
-        timeMakeUp = t1 - t0;
-        if (first){
-            timeMakeUp = t1 - t2;
+
+
+async function playBBB(lon){ //play buffer by buffer
+    var i = 0;
+    var sec = 0;
+    var sample = 0;
+    var notesOn = [];
+    var startTime = context.currentTime;
+    var timeStep = (sampleBufferSize / context.sampleRate);
+
+    var lastTime = startTime;
+    var buf = new Float32Array(sampleBufferSize);
+    sources = [];
+    while(playing){
+        
+        var beats = fromTime(sec);
+        if (i >= lon.length && notesOn.length == 0){
+            playing = false;
+            break;
         }
-        first = true;
+        while(i < lon.length && beatsToSeconds(lon[i].offset) <= sec + .1){
+            notesOn.push(i++);
+        }
+        var notesOff = [];
+        for(var s = 0; s < sampleBufferSize; s++){
+            buf[s] = 0;
+        }
+        for(var n = 0; n < notesOn.length; n++){
+            var note = lon[notesOn[n]];
+            var startSample = beatsToSamples(note.offset);
+            var arr = note.render(sample - startSample); 
+            for(var s = 0; s < sampleBufferSize; s++){
+                buf[s] += arr[s];
+            }
+            
+            if(beats > note.offset + note.beats + 8){
+                notesOff.push(n);
+            }
+        }
+        notesOff.sort();
+        notesOff.reverse();
+        for(var n = 0; n < notesOff.length; n++){
+            notesOn.splice(notesOff[n],1);
+            console.log(beats, notesOn, lon[n]);
+        }
+
+        var buffer = context.createBuffer(1, buf.length, context.sampleRate)
+        buffer.copyToChannel(buf, 0)
+        var source = context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(context.destination);
+
+        sec += timeStep;
+        sample += sampleBufferSize;
+         
+        await sleep(10); //make sure the page doesn't freeze up
+        var currentTime = context.currentTime - startTime;
+        lastTime = context.currentTime;
+
+        
+        source.start(sec + startTime);
+        sources.push(source);
     }
-    else if(first == true){
-        first = false;
-        t0 = performance.now();
+    function fromTime(seconds){
+        var min = seconds/60;
+        return bpm * min;
     }
-    console.log(timeMakeUp);
-	setTimeout(() => { playNotes(lon, i + 1); }, timeDiff * 1000 - timeMakeUp); // walk through the rest of the list of notes
+    function beatsToSeconds(beats){
+         return (1 / (bpm/(beats))) * 60;
+    }
+    function beatsToSamples(beats){
+        var seconds = beatsToSeconds(beats);
+        return seconds * context.sampleRate; 
+    }
 }
+
 //init data
 var synth = new Synth();
 var attack = document.getElementById("attack");
@@ -269,11 +346,19 @@ function onPlay() {
 	if (!playing){
 		playing = true;
         function start(){
-            playNotes(copyNotes(notes),0);
+            var input = Array(notes.length); 
+            for(var i = 0; i < notes.length; i++){
+                input[i] = notes[i].copy();
+            }
+
+            playBBB(input);
         }
 		setTimeout(start, 0);
 	}
     else {
+        for(var i = 0; i<sources.length; i++){
+            sources[i].stop(0);
+        }
         playing = false;
     }
 }
@@ -345,13 +430,13 @@ document.getElementById('container').onclick = function clickEvent(e) {
     case "n": // div id starts with n, indecating a slot
         deselect();
         var rect = e.target; 
-        createNote(Math.floor((e.pageX + slots.scrollLeft - 7)/slotWidth)*slotWidth+2, rect.offsetTop, parseInt(e.target.id.substring(1)), beats, .1);
-        console.log(notes);
+        var note = createNote(Math.floor((e.pageX + slots.scrollLeft - 7)/slotWidth)*slotWidth+2, rect.offsetTop, parseInt(e.target.id.substring(1)), beats, .1);
+        playSound(arrMaker(note.shortCopy(), sineWaveAt)); // play a copy of the note that is shortened
         break;
     case "o": // div id starts with a o, indecating a note 
         note = notes[targetToNote(e.target)]; // get note from list of notes
         beats = note.beats; //change the active note length to the selected note
-        playSound(note.shortCopy().arr) // play a copy of the note that is shortened
+        playSound(arrMaker(note.shortCopy(), sineWaveAt)); // play a copy of the note that is shortened
         break;
     }            
 }
