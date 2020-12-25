@@ -20,6 +20,7 @@ const noteHeight = 21;
 const leftOffset = 50;
 const topOffset = 20;
 const slots = document.getElementById('slots');
+const noteList = document.getElementById('note-names');
 const lowestNote = 36;
 const highestNote = 85;
 var sampleBufferSize = Math.floor(context.sampleRate / 5);
@@ -210,12 +211,17 @@ function setUp(){ // creates all of the divs needed for workspace
 	addSlots();
 	addBars(8, slots, 3, width, true);
 	function addSlots(){ // add the places for notes to go "slots"
-		var cs = ["#222", "#555"];
+		var cs = ["#555","#555","#222","#555","#222","#555","#222","#555","#555","#222","#555","#222"];
+		var letters = ['C', 'B', 'A#', 'A', 'G#', 'G', 'F#', 'F', 'E', 'D#', 'D', 'C#'];
 		var slots = document.getElementById('slots');
 		for (var i = 0 ; i < highestNote - lowestNote; i++){
             var div = createDiv('slot', "n" + (numNotes - i + lowestNote), leftOffset + 0 *slotWidth, i * noteHeight + topOffset, width, 17); 
-            div.style.background = cs[i%2];
-            slots.appendChild(div);
+			div.style.background = cs[i%12];
+			var note = document.createElement('span');
+			note.style.marginBottom = "1px";
+			note.textContent = letters[i%12];
+			noteList.appendChild(note);
+			slots.appendChild(div);
 		}
 	}
 	function addBars(num, elem, rec, w, offset){ // create visual seperation of mesures
